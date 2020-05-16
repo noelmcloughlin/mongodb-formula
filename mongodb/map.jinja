@@ -1,96 +1,81 @@
-{% import_yaml "mongodb/defaults.yaml" as defaults %}
-{% import_yaml "mongodb/osmap.yaml" as osmap %}
-{% import_yaml "mongodb/osfamilymap.yaml" as osfamilymap %}
-{% import_yaml "mongodb/oscodemap.yaml" as oscodemap %}
+# -*- coding: utf-8 -*-
+# vim: ft=jinja
 
-##Robo3T
-{% import_yaml "mongodb/robo3t/defaults.yaml" as defaults_robo %}
+{%- set tplroot = tpldir.split('/')[0] %}
+{%- import_yaml tplroot ~ "/defaults.yaml" as default_settings %}
+{%- import_yaml tplroot ~ "/osfingermap.yaml" as osfingermap %}
+{%- import_yaml tplroot ~ "/osarchmap.yaml" as osarchmap %}
+{%- import_yaml tplroot ~ "/osfamilymap.yaml" as osfamilymap %}
+{%- set _config = salt['config.get'](tplroot, default={}) %}
 
-{% set m = salt['grains.filter_by'](
-    defaults,
-    merge=salt['grains.filter_by'](
-        defaults_robo,
-        merge=salt['grains.filter_by'](
-            osfamilymap,
-            grain='os_family',
-            merge=salt['grains.filter_by'](
-                osmap,
-                grain='os',
-                merge=salt['grains.filter_by'](
-                    oscodemap,
-                    grain='oscodename',
-                    merge=salt['pillar.get']('mongodb', {}), base='mongodb',),
-                base='mongodb',
-                ),
-            base='mongodb',
-            ),
-        base='mongodb',
-        ),
-    base='mongodb',
-) %}
+{%- set defaults = salt['grains.filter_by'](
+      default_settings,
+      default=tplroot,
+      merge=salt['grains.filter_by']( osfamilymap, grain='os_family',
+        merge=salt['grains.filter_by']( osarchmap, grain='osarch',
+          merge=salt['grains.filter_by']( osfingermap, grain='osfinger',
+            merge=salt['grains.filter_by']( _config, default='lookup'
+            )
+          )
+        )
+      )
+    )
+ %}
 
-#### archives
-{%- set name = m.server.url.split('/')[-1]|string %}
-{%- do m.server.update({ 'name': name|replace('RELEASE', m.server.version),
-                         'pkgname': name|replace('RELEASE', m.server.version)|replace('.tgz', '')|replace('-ssl', ''),
-                         'url'    : m.server.url|replace('RELEASE', m.server.version)|string }) %}
+{%- set d = salt['grains.filter_by']( {'defaults': defaults}, default='defaults', merge=_config) %}
 
-{%- set name = m.bic.url.split('/')[-1]|string %}
-{%- do m.bic.update({ 'name': name|replace('RELEASE', m.bic.version),
-                      'pkgname': name|replace('RELEASE', m.bic.version)|replace('.tgz', ''),
-                      'url'    : m.bic.url|replace('RELEASE', m.bic.version)|string }) %}
+{%- for comp in d.software_component_matrix %}
+    {# COMPONENTS #}
+    {%- if comp in d.pkg and d.pkg[comp] is mapping %}
+        {# COMPONENT #}
+        {%- for name,v in d.pkg[comp].items() %}
+            {# WANTED #}
+            {%- set software = d.pkg[comp][name] %}
+            {%- set url = None %}
+            {%- set dir = name %}
+            {%- set release = v.version.split('.')[0] ~ '.' ~ v.version.split('.')[1] %}
 
-{%- set name = m.robo3t.url.split('/')[-1]|string %}
-{%- do m.robo3t.update({ 'name': name|replace('RELEASE', m.robo3t.version),
-                         'pkgname': name|replace('RELEASE', m.robo3t.version)|replace('.tgz', ''),
-                         'url'    : m.robo3t.url|replace('RELEASE', m.robo3t.version)|string }) %}
+            {%- for package in d.software_package_matrix %}
+                {# PACKAGES #}
 
-{%- set name = m.compass.url.split('/')[-1]|string %}
-{%- do m.compass.update({ 'name': name|replace('RELEASE', m.compass.version),
-                          'pkgname': name|replace('RELEASE', m.compass.version)|replace('.tgz', ''),
-                          'url'    : m.compass.url|replace('RELEASE', m.compass.version)|string }) %}
+                {%- if 'version' in v and v.version and package in v and v[package] %}
+                    {# VERSIONED DOWNLOAD #}
+                    {%- set dir = '%s-%s'|format(name, v.version) %}
+                    {%- do software[package].update({'name': d.dir[package] ~'/'~ dir}) %}
 
+                    {%- if 'source' in v[package] %}
+                        {# URL #}
+                        {%- set u = v[package]['source']|replace('VER', v.version)|replace('ARCH', d.arch) %}
+                        {%- set url = u|replace('REL', release) %}
+                        {%- do software[package].update({'source': url}) %}
+                    {%- endif %}
 
+                    {%- if 'source_hash' in v[package] %}
+                        {# HASH #}
+                        {%- set h = v[package]['source_hash']|replace('VER', v.version)|replace('ARCH', d.arch) %}
+                        {%- set hash = h|replace('REL', release) %}
+                        {%- do software[package].update({'source_hash': hash}) %}
+                    {%- endif %}
 
-{#- BACKWARDS COMPATIBILE PILLARS TRANSLATION #}
-{#- Remove this section after 1/Jan/2020 #}
+                    {%- set fullpath = d.dir[package] ~ '/' ~ dir %}
+                    {%- do software.update({'path': d.dir[package] if name == 'macapp' else fullpath }) %}
+                {%- endif %}
+            {%- endfor %}
+        {%- endfor %}
+    {%- endif %}
+{%- endfor %}
 
-{%- set legacy = salt['pillar.get']('mongodb:lookup', {}) %}
-{%- do m.update( legacy ) if legacy %}
-{%- do m.server.update( legacy ) if legacy %}
+### MONGODB FORMULA ###
+{%- do d.update({'formula': 'mongodb'}) %}
 
-{%- set legacy = salt['pillar.get']('mongodb:mongod_settings', {}) %}
-{%- do m.server.mongod.conf.update( legacy ) if legacy %}
+{%- if 'repo' in d.pkg and 'mongod' in d.pkg.database %}
+    {# PKGREPO #}
+    {%- for fname in ('file', 'name', 'humanname', 'gpgkey',) %}
+        {%- if fname in d.pkg.repo %}
+            {%- do d.pkg.repo.update({fname: d.pkg.repo[fname]|replace('REL', d.pkg.database.mongod.version)}) %}
+        {%- endif %}
+    {%- endfor %}
+{%- endif %}
 
-{%- set legacy = salt['pillar.get']('mongodb:mongos', {}) %}
-{%- do m.server.mongos.update({
-     'use_repo': m.server.use_repo if "use_repo" not in legacy else legacy.use_repo,
-     'package' : m.server.package if "mongodb_package" not in legacy else legacy.mongodb_package }) %}
-{%- do m.server.mongos.conf.systemLog.update({
-     'path': m.server.mongos.conf.systemLog.path if "log_path" not in legacy else legacy.log_path }) %}
-
-{%- set legacy = salt['pillar.get']('mongodb', {}) %}
-{%- do m.server.update({
-     'package': m.server.package if "mongodb_package" not in legacy else legacy.mongodb_package,
-     'version': m.server.version if "mongodb_version" not in legacy else legacy.mongodb_version,
-     'use_repo': m.server.use_repo if "use_repo" not in legacy else legacy.use_repo,
-     'user'   : m.server.user  if "mongodb_user" not in legacy else legacy.mongodb_user,
-     'group'  : m.server.group if "mongodb_group" not in legacy else legacy.mongodb_group}) %}
-{%- do m.bic.update({
-     'user'   : m.server.user  if "mongodb_user" not in legacy else legacy.mongodb_user,
-     'group'  : m.server.group if "mongodb_group" not in legacy else legacy.mongodb_group}) %}
-
-{%- do m.server.mongod.update({
-     'service':  m.server.mongod.service if "mongod" not in legacy else legacy.mongod,
-     'conf_path': m.server.mongod.conf_path if "conf_path" not in legacy else legacy.conf_path }) %}
-
-{%- do m.server.mongod.conf.systemLog.update({
-     'path': m.server.mongod.conf.systemLog.path if "log_path" not in legacy else legacy.log_path }) %}
-
-{%- do m.server.mongod.conf.storage.update({
-     'dbPath': m.server.mongod.conf.storage.dbPath if "db_path" not in legacy else legacy.db_path }) %}
-
-
-### KEEPME! ####
-{%- set mongodb = m %}
-
+## keep me
+{%- set data = d %}
