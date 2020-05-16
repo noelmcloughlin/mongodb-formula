@@ -2,156 +2,188 @@
 # vim: ft=yaml
 ---
 mongodb:
-  system:
-    pip: python-pip
-    userhome: /home
-    prefix: /opt
-    use_firewalld: false
-    use_selinux: false
-    pidpath: /var/run/mongodb
-    deps:
-      - curl
-      - openssl
-  dl:
-    interval: 60
-    retries: 2
-    tmpdir: /tmp/mongodbtmp
-
-  robo3t:
-    version: 1.2.1
-    binpath: /usr/local
-    # yamllint disable-line rule:line-length
-    url: https://download.robomongo.org/RELEASE/linux/robo3t-RELEASE-linux-x86_64-3e50a65.tar.gz
-
-  compass:
-    install: false
-    version: 1.17.0
-    binpath: /usr/local
-
-  server:
-    package: mongodb-org
-    version: 4.0
-    use_repo: true
-    use_archive: false
-    url: null
-    use_schema: false
+  wanted:
+    component:
+      - mongod
+    gui: []
+    connectors: []
+    firewall: false
+    selinux: false
     disable_transparent_hugepages: true
-    binpath: /usr
-    user: mongodb
-    group: mongodb
 
-    mongod:
-      service: mongod
-      shortcut: false
-      package: mongodb-org-server
-      conf_path: /etc/mongod.conf
-      conf:
-        systemLog:
-          logAppend: false
-          destination: file
-          path: /var/log/mongodb/mongod.log
-        storage:
-          dbPath: /var/lib/mongodb/mongod
-          journal:
-            enabled: true
-        replication:
-          replSetName: "rs1"
-        sharding:
-          clusterRole: shardsvr
-        net:
-          bindIp: '{{ grains.ipv4[-1] or grains.ipv6[-1] }}'
-          port: 27018
-        processManagement:
-          timeZoneInfo: /usr/share/zoneinfo
-          fork: true
-          pidFilePath: /var/run/mongodb/mongod.pid
-      systemd:
-        file: /usr/lib/systemd/system/mongod.service
-        conf:
-          Type: forking
-          LimitFSIZE: infinity
-          LimitCPU: infinity
-          LimitAS: infinity
-          LimitNOFILE: 64000
-          LimitNPROC: 64000
-          LimitMEMLOCK: infinity
-          TasksMax: infinity
-          TasksAccounting: false
+  dir:
+    archive: /usr/local/mongodb
+    macapp: /Applications
+    default: /etc/default
+    etc: /etc/mongodb
+    homes: /home
+    pid: /var/run/mongodb
+    log: /var/log/mongodb
+    service: /usr/lib/systemd/system
+    symlink: /usr/local
+    tmp: /tmp/mongodb
+    var: /var/lib/mongodb
 
-    mongos:
-      service: mongos
-      shortcut: false
-      package: mongodb-org-mongos
-      conf_path: /etc/mongos.conf
-      conf:
-        systemLog:
-          destination: file
-          path: /var/log/mongodb/mongos.log
-        processManagement:
-          timeZoneInfo: /usr/share/zoneinfo
-          fork: true
-          pidFilePath: /var/run/mongodb/mongos.pid
-        net:
-          bindIp: '{{ grains.ipv4[-1] or grains.ipv6[-1] }}'
-          port: 28017
-        sharding:
-          configDB: 'rs1/{{ grains.ipv4[-1] or grains.ipv6[-1] }}:27018'
-      systemd:
-        file: /usr/lib/systemd/system/mongos.service
-        conf:
-          Type: simple
-          LimitFSIZE: infinity
-          LimitCPU: infinity
-          LimitAS: infinity
-          LimitNOFILE: 64000
-          LimitNPROC: 64000
-          LimitMEMLOCK: infinity
-          TasksMax: infinity
-          TasksAccounting: false
-    shell:
-      package: mongodb-org-shell
-      mongorc: /etc/mongorc.js
-    tools:
-      package: mongodb-org-tools
+  pkg:
+    use_upstream_repo: true
+    use_upstream_package: true
+    use_upstream_archive: archive
+    deps:
+      - python-pip
+      - gzip
+      - unzip
+      - tar
+    repo:
+      humanname: mongodb
+      name: mongodb
+      comments:
+        - installed by salt
+      enabled: 1
+      gpgcheck: 1
+      disabled: 0
 
-  bic:
-    version: 2.7.0
-    use_repo: false
-    use_archive: true
-    use_schema: true
-    binpath: /usr/local/bic
-    user: mongodb
-    group: mongodb
-    mongosqld:
-      service: mongosqld
-      shortcut: false
-      conf_path: /etc/mongosqld.conf
-      conf:
-        systemLog:
-          logAppend: true
-          path: /var/log/mongodb/mongosqld.log
-        schema:
-          path: /etc/mongosqld/schema
-        security:
-          enabled: false
-        mongodb:
+    component:
+      dbtools:
+        version: 100.0.1
+        name: mongoodb-database-tools
+        archive:
+          skip_verify: true
+        commands:
+          - bsondump
+          - mongoexport
+          - mongoimport
+          - mongostat
+          - mongodump
+          - mongofiles
+          - mongorestore
+          - mongotop
+      shell:
+        version: 4.2.6
+        name: mongodb-org-shell
+        config_file: /etc/mongorc.js
+        archive:
+          skip_verify: true
+        commands:
+          - mongo
+      mongod:
+        name: mongodb
+        version: 4.2.6
+        config_file: /etc/mongod.conf
+        user: mongodb
+        group: mongodb
+        package:
+          skip_verify: true
+        archive:
+          skip_verify: true
+          source: https://fastdl.mongodb.org/linux/mongodb-linux-ARCH-debian10-VER.tgz
+        config:
+          # http://docs.mongodb.org/manual/reference/configuration-options
+          storage:
+            dbPath: /var/lib/mongodb/mongod
+          # replication:
+          #   replSetName: "rs1"
+          # sharding:
+          #   clusterRole: shardsvr
           net:
-            uri: '{{ grains.ipv4[-1] or grains.ipv6[-1] }}:27018'
-            # auth:
-            #  username: root
-            #  password: changeme
-        net:
-          bindIp: '{{ grains.ipv4[-1] or grains.ipv6[-1] }}'
-          port: 29017
-      systemd:
-        file: /usr/lib/systemd/system/mongosqld.service
-        conf:
-          Type: simple
-          LimitFSIZE: infinity
-          LimitCPU: infinity
-          LimitAS: infinity
-          LimitNOFILE: 64000
-          LimitNPROC: 64000
-          LimitMEMLOCK: infinity
-          TasksMax: infinity
-          TasksAccounting: false
+            port: 27017
+        environ_file: /etc/default/mongod.sh
+        environ: {}
+        service:
+          name: mongod
+        commands:
+          - mongod
+          - mongodump
+          - mongorestore
+          - mongoexport
+          - mongoimport
+          - mongostat
+          - mongotop
+          - bsondump
+          - mongofiles
+          - mongoreplay
+          - mongos
+          - mongo
+        firewall:
+          ports:
+            - tcp/27017
+            - tcp/27018
+            - tcp/27019
+      mongos:
+        name: mongodb-org-mongos
+        version: 4.2.6
+        user: mongos
+        group: mongos
+        config_file: /etc/mongos.conf
+        config:
+          sharding:
+            configDB: 'rs1/127.0.0.1:27018'
+        service:
+          name: mongos
+        firewall:
+          ports:
+            - tcp/9093
+            # tcp/9094
+        commands:
+          - mongos
+
+    gui:
+      compass:
+        version: 1.21.2
+        name: mongo-compass
+        archive:
+          skip_verify: true
+      robo3t:
+        version: 1.3.1
+        # yamllint disable-line rule:line-length
+        archive:
+          # source: https://download.robomongo.org/REL/linux/robo3t-REL-linux-ARCH-3e50a65.tar.gz
+          source: https://download-test.robomongo.org/linux/robo3t-VER-linux-ARCH-7419c406.tar.gz
+          skip_verify: true
+        commands:
+          - robo3t
+
+    connectors:
+      bi:
+        name: mongodb-bi
+        version: 2.13.4
+        archive:
+          # for linux, see osfingermap; bi is unavailable for macos
+          skip_verify: true
+        service:
+          name: mongosqld
+        firewall:
+          ports: tcp/29017
+        commands:
+          - mongodrdl
+          - mongosqld
+          - mongotranslate
+      kafka:
+        name: mongo-kafka
+        version: 1.1.0
+        archive:
+          # yamllint disable-line rule:line-length
+          source: https://github.com/mongodb/mongo-kafka/releases/download/rVER/mongodb-kafka-connect-mongodb-VER.zip
+          skip_verify: true
+      spark:
+        name: mongo-spark
+        version: 2.4.1
+        archive:
+          source: https://github.com/mongodb/mongo-spark/archive/rVER.tar.gz
+          skip_verify: true
+
+  # Just here for testing
+  added_in_defaults: defaults_value
+  winner: defaults
+
+  identity:
+    rootuser: root
+    rootgroup: root
+
+  retry_option:
+    # https://docs.saltstack.com/en/latest/ref/states/requisites.html#retrying-states
+    attempts: 3
+    until: true
+    interval: 60
+    splay: 10
+  linux:
+    altpriority: 0

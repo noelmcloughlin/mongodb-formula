@@ -1,7 +1,9 @@
 .. _readme:
 
-mongodb
-=======
+mongodb-formula
+==================
+
+Formula to manage MongoDB on GNU/Linux and MacOS.
 
 |img_travis| |img_sr|
 
@@ -14,7 +16,6 @@ mongodb
    :scale: 100%
    :target: https://github.com/semantic-release/semantic-release
 
-Install and configure MongoDB products on GNU/Linux and MacOS.
 
 .. contents:: **Table of Contents**
    :depth: 1
@@ -23,32 +24,23 @@ General notes
 -------------
 
 See the full `SaltStack Formulas installation and usage instructions
-<https://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html>`_.
+<https://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html>`_.  If you are interested in writing or contributing to formulas, please pay attention to the `Writing Formula Section
+<https://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html#writing-formulas>`_. If you want to use this formula, please pay attention to the ``FORMULA`` file and/or ``git tag``, which contains the currently released version. This formula is versioned according to `Semantic Versioning <http://semver.org/>`_.  See `Formula Versioning Section <https://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html#versioning>`_ for more details.
 
-If you are interested in writing or contributing to formulas, please pay attention to the `Writing Formula Section
-<https://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html#writing-formulas>`_.
+Special notes
+-------------
 
-If you want to use this formula, please pay attention to the ``FORMULA`` file and/or ``git tag``,
-which contains the currently released version. This formula is versioned according to `Semantic Versioning <http://semver.org/>`_.
-
-See `Formula Versioning Section <https://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html#versioning>`_ for more details.
-
-If you need (non-default) configuration, please pay attention to the ``pillar.example`` file and/or `Special notes`_ section.
+None.
 
 Contributing to this repo
 -------------------------
 
 **Commit message formatting is significant!!**
 
-Please see `How to contribute <https://github.com/saltstack-formulas/.github/blob/master/CONTRIBUTING.rst>`_ for more details.
+Please see :ref:`How to contribute <CONTRIBUTING>` for more details.
 
-Special notes
--------------
-
-None
-
-Available states
-----------------
+Available metastates
+--------------------
 
 .. contents::
    :local:
@@ -56,72 +48,71 @@ Available states
 ``mongodb``
 ^^^^^^^^^
 
-Metastate to deploy MongoDB products from packages and/or archive files.  
+*Meta-state (This is a state that includes other states)*.
 
-``mongodb.server``
-^^^^^^^^^^^^^^^^
+This installs the MongoDB solution.
 
-Deploy and configure MongoDB "Community Server" and start 'mongos' and 'mongod' services.
 
-``mongodb.bic``
-^^^^^^^^^^^^^
-
-Deploy and configure MongoDB "Connector for BI" and start 'mongosqld' service.
-
-``mongodb.compass``
+``mongodb.archive``
 ^^^^^^^^^^^^^^^^^
 
-Deploy Compass, the GUI for MongoDB
+This state will install mongodb components on MacOS and GNU/Linux from archive.
 
-``mongodb.robo3t``
+``mongodb.connectors``
+^^^^^^^^^^^^^^^^^^^^
+
+This state will install mongodb connectors on MacOS and GNU/Linux from archive.
+
+``mongodb.package``
+^^^^^^^^^^^^^^^^^
+
+This state will install mongodb component packages on GNU/Linux.
+
+``mongodb.config``
 ^^^^^^^^^^^^^^^^
 
-Deploy Robo 3T (formerly Robomongo), another GUI for MongoDB
+This state will apply mongodb service configuration (files).
 
-``mongodb.clean``
-^^^^^^^^^^^^^^^
+``mongodb.service``
+^^^^^^^^^^^^^^^^^
 
-Metastate to uninstall MongoDB products
+This state will start mongodb component services.
 
-Other states
-------------
+``mongodb.gui``
+^^^^^^^^^^^^^
 
-``mongodb.server.config``
+This state will apply mongodb gui configuration.
 
-``mongodb.server.clean``
+``mongodb.gui.clean``
+^^^^^^^^^^^^^^^^^^^
 
-``mongodb.bic.config``
+This state will remove mongodb gui configuration.
 
-``mongodb.bic.clean``
+``mongodb.service.clean``
+^^^^^^^^^^^^^^^^^^^^^^^
 
-``mongodb.compass.clean``
+This state will stop mongodb component services.
 
-``mongodb.robo3t.clean``
+``mongodb.config.clean``
+^^^^^^^^^^^^^^^^^^^^^^
 
+This state will remove mongodb service configuration (files).
 
-Pillar Data
------------
-Use Linux distribution repo::
+``mongodb.package.clean``
+^^^^^^^^^^^^^^^^^^^^^^^
 
-       mongodb:
-         server:
-           version: '4.0'
+This state will uninstall mongodb component packages from GNU/Linux.
 
-Use official upstream repo::
+``mongodb.connectors.clean``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-       mongodb:
-         server:
-           use_repo: true
-           version: '4.0'
+This state will uninstall mongodb connectors.
 
-Use official upstream archives::
+``mongodb.archive.clean``
+^^^^^^^^^^^^^^^^^^^^^^^
 
-       mongodb:
-         server:
-           use_archive: true
-           version: '4.0.3'
-         bic:
-           version: 2.7.0
+This state will remove mongodb component archive (directories).
+
 
 Testing
 -------
@@ -168,4 +159,3 @@ Runs all of the stages above in one go: i.e. ``destroy`` + ``converge`` + ``veri
 
 Gives you SSH access to the instance for manual testing.
 
-.. vim: fenc=utf-8 spell spl=en cc=100 tw=99 fo=want sts=2 sw=2 et
